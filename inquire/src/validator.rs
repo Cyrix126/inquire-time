@@ -120,10 +120,9 @@ where
 /// # Examples
 ///
 /// ```
-/// use chrono::{Datelike, NaiveDate, Weekday};
 /// use inquire::validator::{DateValidator, Validation};
 ///
-/// let validator = |input: NaiveDate| {
+/// let validator = |input: Date| {
 ///     if input.weekday() == Weekday::Sat || input.weekday() == Weekday::Sun {
 ///         Ok(Validation::Invalid("Weekends are not allowed".into()))
 ///     } else {
@@ -131,17 +130,17 @@ where
 ///     }
 /// };
 ///
-/// assert_eq!(Validation::Valid, validator.validate(NaiveDate::from_ymd(2021, 7, 26))?);
+/// assert_eq!(Validation::Valid, validator.validate(Date::from_ymd(2021, 7, 26))?);
 /// assert_eq!(
 ///     Validation::Invalid("Weekends are not allowed".into()),
-///     validator.validate(NaiveDate::from_ymd(2021, 7, 25))?
+///     validator.validate(Date::from_ymd(2021, 7, 25))?
 /// );
 /// # Ok::<(), inquire::error::CustomUserError>(())
 /// ```
 #[cfg(feature = "date")]
 pub trait DateValidator: DynClone {
     /// Confirm the given input date is a valid value.
-    fn validate(&self, input: chrono::NaiveDate) -> Result<Validation, CustomUserError>;
+    fn validate(&self, input: time::Date) -> Result<Validation, CustomUserError>;
 }
 
 #[cfg(feature = "date")]
@@ -154,9 +153,9 @@ impl Clone for Box<dyn DateValidator> {
 #[cfg(feature = "date")]
 impl<F> DateValidator for F
 where
-    F: Fn(chrono::NaiveDate) -> Result<Validation, CustomUserError> + Clone,
+    F: Fn(time::Date) -> Result<Validation, CustomUserError> + Clone,
 {
-    fn validate(&self, input: chrono::NaiveDate) -> Result<Validation, CustomUserError> {
+    fn validate(&self, input: time::Date) -> Result<Validation, CustomUserError> {
         (self)(input)
     }
 }

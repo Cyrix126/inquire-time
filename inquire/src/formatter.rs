@@ -46,8 +46,9 @@
 //! ? What's your name? My name is Mikael
 //! ```
 
+#[cfg(feature = "date")]
+use crate::date_utils::DateFromStr;
 use crate::list_option::ListOption;
-
 /// Type alias for formatters that receive a string slice as the input,
 /// required by [Text](crate::Text) and [Password](crate::Password) for example.
 ///
@@ -158,7 +159,6 @@ pub type CustomTypeFormatter<'a, T> = &'a dyn Fn(T) -> String;
 /// # Examples
 ///
 /// ```
-/// use chrono::NaiveDate;
 /// use inquire::formatter::DateFormatter;
 ///
 /// let formatter: DateFormatter = &|val| val.format("%d/%m/%Y").to_string();
@@ -168,8 +168,28 @@ pub type CustomTypeFormatter<'a, T> = &'a dyn Fn(T) -> String;
 ///     formatter(NaiveDate::from_ymd(2021, 7, 25)),
 /// );
 /// ```
-pub type DateFormatter<'a> = &'a dyn Fn(chrono::NaiveDate) -> String;
+pub type DateFormatter<'a> = &'a dyn Fn(time::Date) -> String;
 
+#[cfg(feature = "date")]
+
+/// Type alias for formatters used in [`DateSelect`](crate::DateSelect) prompts.
+///
+/// Formatters receive the user input and return a [String] to be displayed
+/// to the user as the final answer.
+///
+/// # Examples
+///
+/// ```
+/// use inquire::formatter::DateFormatter;
+///
+/// let formatter: DateFormatter = &|val| val.format("%d/%m/%Y").to_string();
+///
+/// assert_eq!(
+///     String::from("25/07/2021"),
+///     formatter(NaiveDate::from_ymd(2021, 7, 25)),
+/// );
+/// ```
+pub type DateFomStrFormatter<'a> = &'a dyn Fn(DateFromStr) -> String;
 /// String formatter used by default in inputs that return a `String` as input.
 /// Its behavior is to just echo the received input.
 ///
@@ -211,7 +231,6 @@ pub const DEFAULT_BOOL_FORMATTER: BoolFormatter = &|ans| {
 /// # Examples
 ///
 /// ```
-/// use chrono::NaiveDate;
 /// use inquire::formatter::DEFAULT_DATE_FORMATTER;
 ///
 /// let formatter = DEFAULT_DATE_FORMATTER;
@@ -225,4 +244,32 @@ pub const DEFAULT_BOOL_FORMATTER: BoolFormatter = &|ans| {
 ///     formatter(NaiveDate::from_ymd(2021, 1, 1)),
 /// );
 /// ```
-pub const DEFAULT_DATE_FORMATTER: DateFormatter = &|val| val.format("%B %-e, %Y").to_string();
+pub const DEFAULT_DATE_FORMATTER: DateFormatter = &|val| {
+    val.format(&time::format_description::parse("[day]-[month]-[year]").unwrap())
+        .unwrap()
+};
+#[cfg(feature = "date")]
+/// String formatter used by default in [`CustomType`](crate::CustomType) prompts for date.
+/// Prints the selected date in the format: Month Day, Year.
+///
+/// # Examples
+///
+/// ```
+/// use inquire::formatter::DEFAULT_DATE_FROM_STR_FORMATTER;
+///
+/// let formatter = DEFAULT_DATE_FROM_STR_FORMATTER;
+///
+/// assert_eq!(
+///     String::from("July 25, 2021"),
+///     formatter(Date::from_ymd(2021, 7, 25)),
+/// );
+/// assert_eq!(
+///     String::from("January 1, 2021"),
+///     formatter(Date::from_ymd(2021, 1, 1)),
+/// );
+/// ```
+pub const DEFAULT_DATE_FROM_STR_FORMATTER: DateFomStrFormatter = &|val| {
+    val.date
+        .format(&time::format_description::parse("[day]-[month]-[year]").unwrap())
+        .unwrap()
+};

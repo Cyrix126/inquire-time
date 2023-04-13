@@ -1,12 +1,13 @@
-use chrono::{Datelike, Duration, NaiveDate};
 use std::{
     cmp::{max, min},
     ops::Add,
 };
 
+use time::{Date, Duration};
+
 use crate::{
     config::get_configuration,
-    date_utils::{get_current_date, get_month},
+    date_utils::{get_current_date, get_month, get_number_month},
     error::{InquireError, InquireResult},
     formatter::{self, DateFormatter},
     terminal::{get_default_terminal, Terminal},
@@ -40,13 +41,12 @@ use crate::{
 /// # Example
 ///
 /// ```no_run
-/// use chrono::{NaiveDate, Weekday};
 /// use inquire::DateSelect;
 ///
 /// let date = DateSelect::new("When do you want to travel?")
-///     .with_starting_date(NaiveDate::from_ymd(2021, 8, 1))
-///     .with_min_date(NaiveDate::from_ymd(2021, 8, 1))
-///     .with_max_date(NaiveDate::from_ymd(2021, 12, 31))
+///     .with_starting_date(Date::from_ymd(2021, 8, 1))
+///     .with_min_date(Date::from_ymd(2021, 8, 1))
+///     .with_max_date(Date::from_ymd(2021, 12, 31))
 ///     .with_week_start(Weekday::Mon)
 ///     .with_help_message("Possible flights will be displayed according to the selected date")
 ///     .prompt();
@@ -62,16 +62,16 @@ pub struct DateSelect<'a> {
     pub message: &'a str,
 
     /// First day of the week when displaying week rows.
-    pub week_start: chrono::Weekday,
+    pub week_start: time::Weekday,
 
     /// Starting date to be selected.
-    pub starting_date: NaiveDate,
+    pub starting_date: Date,
 
     /// Min date allowed to be selected.
-    pub min_date: Option<NaiveDate>,
+    pub min_date: Option<Date>,
 
     /// Max date allowed to be selected.
-    pub max_date: Option<NaiveDate>,
+    pub max_date: Option<Date>,
 
     /// Help message to be presented to the user.
     pub help_message: Option<&'a str>,
@@ -117,13 +117,13 @@ impl<'a> DateSelect<'a> {
     pub const DEFAULT_VALIDATORS: Vec<Box<dyn DateValidator>> = vec![];
 
     /// Default week start.
-    pub const DEFAULT_WEEK_START: chrono::Weekday = chrono::Weekday::Sun;
+    pub const DEFAULT_WEEK_START: time::Weekday = time::Weekday::Sunday;
 
     /// Default min date.
-    pub const DEFAULT_MIN_DATE: Option<NaiveDate> = None;
+    pub const DEFAULT_MIN_DATE: Option<Date> = None;
 
     /// Default max date.
-    pub const DEFAULT_MAX_DATE: Option<NaiveDate> = None;
+    pub const DEFAULT_MAX_DATE: Option<Date> = None;
 
     /// Creates a [DateSelect] with the provided message, along with default configuration values.
     pub fn new(message: &'a str) -> Self {
@@ -154,30 +154,30 @@ impl<'a> DateSelect<'a> {
     }
 
     /// Sets the default date of the prompt. Equivalent to [DateSelect::with_starting_date](DateSelect::with_starting_date).
-    pub fn with_default(self, default: NaiveDate) -> Self {
+    pub fn with_default(self, default: Date) -> Self {
         self.with_starting_date(default)
     }
 
     /// Sets the week start.
-    pub fn with_week_start(mut self, week_start: chrono::Weekday) -> Self {
+    pub fn with_week_start(mut self, week_start: time::Weekday) -> Self {
         self.week_start = week_start;
         self
     }
 
     /// Sets the min date.
-    pub fn with_min_date(mut self, min_date: NaiveDate) -> Self {
+    pub fn with_min_date(mut self, min_date: Date) -> Self {
         self.min_date = Some(min_date);
         self
     }
 
     /// Sets the max date.
-    pub fn with_max_date(mut self, max_date: NaiveDate) -> Self {
+    pub fn with_max_date(mut self, max_date: Date) -> Self {
         self.max_date = Some(max_date);
         self
     }
 
     /// Sets the starting date. Equivalent to [DateSelect::with_default](DateSelect::with_default).
-    pub fn with_starting_date(mut self, starting_date: NaiveDate) -> Self {
+    pub fn with_starting_date(mut self, starting_date: Date) -> Self {
         self.starting_date = starting_date;
         self
     }
@@ -252,7 +252,7 @@ impl<'a> DateSelect<'a> {
     ///
     /// Meanwhile, if the user does submit an answer, the method wraps the return
     /// type with `Some`.
-    pub fn prompt_skippable(self) -> InquireResult<Option<NaiveDate>> {
+    pub fn prompt_skippable(self) -> InquireResult<Option<Date>> {
         match self.prompt() {
             Ok(answer) => Ok(Some(answer)),
             Err(InquireError::OperationCanceled) => Ok(None),
@@ -262,7 +262,7 @@ impl<'a> DateSelect<'a> {
 
     /// Parses the provided behavioral and rendering options and prompts
     /// the CLI user for input according to the defined rules.
-    pub fn prompt(self) -> InquireResult<NaiveDate> {
+    pub fn prompt(self) -> InquireResult<Date> {
         let terminal = get_default_terminal()?;
         let mut backend = Backend::new(terminal, self.render_config)?;
         self.prompt_with_backend(&mut backend)
@@ -271,17 +271,17 @@ impl<'a> DateSelect<'a> {
     pub(crate) fn prompt_with_backend<T: Terminal>(
         self,
         backend: &mut Backend<'a, T>,
-    ) -> InquireResult<NaiveDate> {
+    ) -> InquireResult<Date> {
         DateSelectPrompt::new(self)?.prompt(backend)
     }
 }
 
 struct DateSelectPrompt<'a> {
     message: &'a str,
-    current_date: NaiveDate,
-    week_start: chrono::Weekday,
-    min_date: Option<NaiveDate>,
-    max_date: Option<NaiveDate>,
+    current_date: Date,
+    week_start: time::Weekday,
+    min_date: Option<Date>,
+    max_date: Option<Date>,
     help_message: Option<&'a str>,
     vim_mode: bool,
     formatter: DateFormatter<'a>,
@@ -320,7 +320,7 @@ impl<'a> DateSelectPrompt<'a> {
         })
     }
 
-    fn shift_date(&mut self, duration: chrono::Duration) {
+    fn shift_date(&mut self, duration: time::Duration) {
         self.update_date(self.current_date.add(duration));
     }
 
@@ -331,22 +331,23 @@ impl<'a> DateSelectPrompt<'a> {
         let months = qty % 12;
 
         let new_year = date.year() + years;
-        let cur_month = date.month0() as i32;
-        let mut new_month = (cur_month + months) % 12;
-        if new_month < 0 {
+        let cur_month = get_number_month(date.month());
+        let mut new_month = (cur_month as i32 + months) % 12;
+        if new_month < 1 {
             new_month += 12;
         }
 
         let new_date = date
-            .with_month0(new_month as u32)
-            .and_then(|d| d.with_year(new_year));
+            .replace_month(get_month(new_month as u32))
+            .and_then(|d| d.replace_year(new_year))
+            .ok();
 
         if let Some(new_date) = new_date {
             self.update_date(new_date);
         }
     }
 
-    fn update_date(&mut self, new_date: NaiveDate) {
+    fn update_date(&mut self, new_date: Date) {
         self.current_date = new_date;
         if let Some(min_date) = self.min_date {
             self.current_date = max(self.current_date, min_date);
@@ -398,7 +399,7 @@ impl<'a> DateSelectPrompt<'a> {
         Ok(Validation::Valid)
     }
 
-    fn cur_answer(&self) -> NaiveDate {
+    fn cur_answer(&self) -> Date {
         self.current_date
     }
 
@@ -414,7 +415,7 @@ impl<'a> DateSelectPrompt<'a> {
         backend.render_calendar_prompt(prompt)?;
 
         backend.render_calendar(
-            get_month(self.current_date.month()),
+            self.current_date.month(),
             self.current_date.year(),
             self.week_start,
             get_current_date(),
@@ -432,8 +433,8 @@ impl<'a> DateSelectPrompt<'a> {
         Ok(())
     }
 
-    fn prompt<B: DateSelectBackend>(mut self, backend: &mut B) -> InquireResult<NaiveDate> {
-        let final_answer: NaiveDate;
+    fn prompt<B: DateSelectBackend>(mut self, backend: &mut B) -> InquireResult<Date> {
+        let final_answer: Date;
 
         loop {
             self.render(backend)?;
@@ -472,7 +473,6 @@ mod test {
         validator::Validation,
         DateSelect,
     };
-    use chrono::NaiveDate;
     use crossterm::event::{KeyCode, KeyEvent};
 
     fn default<'a>() -> DateSelect<'a> {
@@ -506,8 +506,8 @@ mod test {
     date_test!(
         custom_default_date,
         vec![KeyCode::Enter],
-        NaiveDate::from_ymd(2021, 1, 9),
-        DateSelect::new("Date").with_default(NaiveDate::from_ymd(2021, 1, 9))
+        Date::from_ymd(2021, 1, 9),
+        DateSelect::new("Date").with_default(Date::from_ymd(2021, 1, 9))
     );
 
     #[test]

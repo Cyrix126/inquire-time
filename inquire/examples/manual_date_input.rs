@@ -1,11 +1,19 @@
-use chrono::NaiveDate;
-use inquire::{formatter::DEFAULT_DATE_FORMATTER, CustomType};
+use inquire::{formatter::DEFAULT_DATE_FROM_STR_FORMATTER, CustomType, DateFromStr};
+use time::{macros::format_description, Date};
 
 fn main() {
-    let amount = CustomType::<NaiveDate>::new("When are you going to visit the office?")
+    let amount = CustomType::<DateFromStr>::new("When are you going to visit the office?")
         .with_placeholder("dd/mm/yyyy")
-        .with_parser(&|i| NaiveDate::parse_from_str(i, "%d/%m/%Y").map_err(|_| ()))
-        .with_formatter(DEFAULT_DATE_FORMATTER)
+        .with_parser(&|i| {
+            {
+                match Date::parse(i, &format_description!(version = 2, "[day]/[month]/[year]")) {
+                    Ok(date) => Ok(DateFromStr { date }),
+                    Err(err) => Err(err),
+                }
+            }
+            .map_err(|_| ())
+        })
+        .with_formatter(DEFAULT_DATE_FROM_STR_FORMATTER)
         .with_error_message("Please type a valid date.")
         .with_help_message("The necessary arrangements will be made")
         .prompt();

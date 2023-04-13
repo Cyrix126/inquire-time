@@ -1,5 +1,5 @@
-use chrono::{NaiveDate, Weekday};
-use inquire::{formatter::DEFAULT_DATE_FORMATTER, validator::Validation, CustomType, DateSelect};
+use inquire::{validator::Validation, CustomType, DateFromStr, DateSelect};
+use time::{macros::format_description, Date, OffsetDateTime, Weekday};
 
 fn main() {
     date_select_default();
@@ -22,10 +22,17 @@ fn custom_type_parsed_date_prompt() {
     println!("-------> Date parsed from text input with Custom Type prompt");
     println!();
 
-    let amount = CustomType::<NaiveDate>::new("When are you going to visit the office?")
+    let amount = CustomType::<DateFromStr>::new("When are you going to visit the office?")
         .with_placeholder("dd/mm/yyyy")
-        .with_parser(&|i| NaiveDate::parse_from_str(i, "%d/%m/%Y").map_err(|_| ()))
-        .with_formatter(DEFAULT_DATE_FORMATTER)
+        .with_parser(&|i| {
+            {
+                match Date::parse(i, &format_description!(version = 2, "[day]/[month]/[year]")) {
+                    Ok(date) => Ok(DateFromStr { date }),
+                    Err(err) => Err(err),
+                }
+            }
+            .map_err(|_| ())
+        })
         .with_error_message("Please type a valid date.")
         .with_help_message("The necessary arrangements will be made")
         .prompt();
@@ -43,10 +50,10 @@ fn date_select_misc_options() {
 
     let date = DateSelect::new("When do you want to travel?")
         // Could also be `.with_starting_date()`
-        .with_default(NaiveDate::from_ymd(2021, 8, 1))
-        .with_min_date(NaiveDate::from_ymd(2021, 8, 1))
-        .with_max_date(NaiveDate::from_ymd(2021, 12, 31))
-        .with_week_start(Weekday::Mon)
+        .with_default(Date::from_calendar_date(2021, time::Month::August, 1).unwrap())
+        .with_min_date(Date::from_calendar_date(2021, time::Month::August, 1).unwrap())
+        .with_max_date(Date::from_calendar_date(2021, time::Month::December, 31).unwrap())
+        .with_week_start(Weekday::Monday)
         .with_help_message("Possible flights will be displayed according to the selected date")
         .prompt();
 
@@ -62,9 +69,8 @@ fn date_select_with_validation() {
     println!();
 
     let date = DateSelect::new("Validated input")
-        .with_validator(|d: NaiveDate| {
-            let now = chrono::Utc::now().naive_utc().date();
-
+        .with_validator(|d: Date| {
+            let now = OffsetDateTime::now_local().unwrap().date();
             if d.ge(&now) {
                 Ok(Validation::Invalid("Date must be in the past".into()))
             } else {
@@ -87,10 +93,10 @@ fn date_select_with_starting_date() {
     DateSelect::new("Check-in date:")
         // Could also be `.with_default()`
         .with_starting_date(
-            chrono::Local::now()
+            OffsetDateTime::now_local()
+                .unwrap()
                 .date()
-                .naive_local()
-                .pred_opt()
+                .previous_day()
                 .unwrap(),
         )
         .prompt()

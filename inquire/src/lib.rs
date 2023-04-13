@@ -70,6 +70,8 @@ pub mod autocompletion;
 mod config;
 #[cfg(feature = "date")]
 mod date_utils;
+#[cfg(feature = "date")]
+pub use date_utils::DateFromStr;
 pub mod error;
 pub mod formatter;
 mod input;

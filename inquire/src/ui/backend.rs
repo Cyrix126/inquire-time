@@ -570,9 +570,13 @@ where
 pub mod date {
     use std::{io::Result, ops::Sub};
 
-    use chrono::{Datelike, Duration};
+    use time::Duration;
 
-    use crate::{date_utils::get_start_date, terminal::Terminal, ui::Styled};
+    use crate::{
+        date_utils::{display_month_fr, get_start_date},
+        terminal::Terminal,
+        ui::Styled,
+    };
 
     use super::{Backend, CommonBackend};
 
@@ -582,13 +586,13 @@ pub mod date {
         #[allow(clippy::too_many_arguments)]
         fn render_calendar(
             &mut self,
-            month: chrono::Month,
+            month: time::Month,
             year: i32,
-            week_start: chrono::Weekday,
-            today: chrono::NaiveDate,
-            selected_date: chrono::NaiveDate,
-            min_date: Option<chrono::NaiveDate>,
-            max_date: Option<chrono::NaiveDate>,
+            week_start: time::Weekday,
+            today: time::Date,
+            selected_date: time::Date,
+            min_date: Option<time::Date>,
+            max_date: Option<time::Date>,
         ) -> Result<()>;
     }
 
@@ -604,13 +608,13 @@ pub mod date {
 
         fn render_calendar(
             &mut self,
-            month: chrono::Month,
+            month: time::Month,
             year: i32,
-            week_start: chrono::Weekday,
-            today: chrono::NaiveDate,
-            selected_date: chrono::NaiveDate,
-            min_date: Option<chrono::NaiveDate>,
-            max_date: Option<chrono::NaiveDate>,
+            week_start: time::Weekday,
+            today: time::Date,
+            selected_date: time::Date,
+            min_date: Option<time::Date>,
+            max_date: Option<time::Date>,
         ) -> Result<()> {
             macro_rules! write_prefix {
                 () => {{
@@ -621,7 +625,7 @@ pub mod date {
             }
 
             // print header (month year)
-            let header = format!("{} {}", month.name().to_lowercase(), year);
+            let header = format!("{} {}", display_month_fr(month).to_lowercase(), year);
             let header = format!("{header:^20}");
             let header = Styled::new(header).with_style_sheet(self.render_config.calendar.header);
 
@@ -640,7 +644,7 @@ pub mod date {
                 formatted.pop();
                 week_days.push(formatted);
 
-                current_weekday = current_weekday.succ();
+                current_weekday = current_weekday.next();
             }
 
             let week_days = Styled::new(week_days.join(" "))
@@ -658,7 +662,7 @@ pub mod date {
                 date_it = date_it.sub(Duration::weeks(1));
             } else {
                 while date_it.weekday() != week_start {
-                    date_it = date_it.pred();
+                    date_it = date_it.previous_day().unwrap();
                 }
             }
 
@@ -686,7 +690,7 @@ pub mod date {
                         }
                     } else if date_it == today {
                         style_sheet = self.render_config.calendar.today_date;
-                    } else if date_it.month() != month.number_from_month() {
+                    } else if date_it.month() != month {
                         style_sheet = self.render_config.calendar.different_month_date;
                     }
 
@@ -705,7 +709,7 @@ pub mod date {
                     let token = Styled::new(date).with_style_sheet(style_sheet);
                     self.terminal.write_styled(&token)?;
 
-                    date_it = date_it.succ();
+                    date_it = date_it.next_day().unwrap();
                 }
 
                 self.new_line()?;
