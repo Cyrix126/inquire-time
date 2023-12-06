@@ -8,18 +8,14 @@ on:
       - main
 
 env:
-  MSRV: 1.58.1
+  MSRV: 1.63.0
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          # Make sure the actual branch is checked out when running on pull requests
-          ref: ${{ github.head_ref }}
-          fetch-depth: 1
+        uses: actions/checkout@v3
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
@@ -52,22 +48,18 @@ jobs:
         run: cargo fmt --check
 
       - name: Check lint
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --workspace --all-features -- -D warnings
 
   tests:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [msrv, stable, beta, nightly]
+        build: [msrv, stable]
         os: ["ubuntu-latest", "macOS-latest", "windows-latest"]
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          # Make sure the actual branch is checked out when running on pull requests
-          ref: ${{ github.head_ref }}
-          fetch-depth: 1
+        uses: actions/checkout@v3
 
       - name: Define Rust version
         if: matrix.os != 'windows-latest'

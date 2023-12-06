@@ -6,13 +6,45 @@
 
 ### Features
 
-- Allow lifetime customization of RenderConfig. [#101](https://github.com/mikaelmello/inquire/pull/101). Thanks to @arturfast for the suggestion [#95](https://github.com/mikaelmello/inquire/issues/95).
+- Add one-liner helpers for quick scripts. [#144](https://github.com/mikaelmello/inquire/pull/144).
+- **Breaking**. Allow lifetime customization of RenderConfig. [#101](https://github.com/mikaelmello/inquire/pull/101). Thanks to @arturfast for the suggestion [#95](https://github.com/mikaelmello/inquire/issues/95).
+- Add new option on MultiSelect prompts to set all options to be selected by default. Thanks to @conikeec for the suggestion (#151)!
+- **Breaking**. Improved user experience on Password prompts. When there is a validation error, the input is cleared if the password is rendered using the `Hidden` display mode, matching the user expectation of having to write the password from scratch again. Thanks to @CM-IV for the questions on #149!
+- Add strict clippy lints to improve code consistency and readability.
+- Expand workflow clippy task to lint all-features in workspace.
+- Add docs badge to readme.
+- **Breaking** The Select and Multiselect Filter now scores input and is now expected to return an `Option<i64>`, making it possible to order/rank the list of options. [#176](https://github.com/mikaelmello/inquire/pull/176)
+    `None`: Will not be displayed in the list of options.
+    `Some(score)`: score determines the order of options, higher score, higher on the list of options.
+- Implement fuzzy search as default on Select and MultiSelect prompts. [#176](https://github.com/mikaelmello/inquire/pull/176)
+- Add new option on Select/MultiSelect prompts allowing to reset selection to the first item on filter-input changes. [#176](https://github.com/mikaelmello/inquire/pull/176)
+- Emacs-like keybindings added where applicable:
+ - Ctrl-p/Ctrl-n for up/down
+ - Ctrl-b/Ctrl-f for left/right
+ - Ctrl-j/Ctrl-g for enter/cancel
+- Added 'with_starting_filter_input' to both Select and MultiSelect, which allows for setting an initial value to the filter section of the prompt.
+
+### Fixes
+
+- Fixed typos in the code's comments.
 
 ### Dependency changes (some breaking)
 
-- Upgraded underlying `crossterm` crate from v0.25 to v0.26.
 - Upgraded underlying `termion` crate from v1.5 to v2.0.
 - Upgraded underlying `bitflags` from v1 to v2, which affects the `Attributes` and `KeyModifiers` crates. If you use any of bitflag's methods directly, you might be affected, refer to the [bitflags changelog](https://github.com/bitflags/bitflags/releases/tag/2.0.0) for more information.
+- Removed `thiserror` dependency in favor of implementing `InquireError` by hand. [#146](https://github.com/mikaelmello/inquire/issues/146)
+- Raised MSRV to 1.63 due to requirements in downstream dependencies.
+- MSRV is now explicitly set in the package definition.
+- Replaced `lazy_static` with `once_cell` as `once_cell::sync::Lazy` is being standardized and `lazy_static` is not actively maintained anymore.
+- Added `fuzzy-matcher` as an optional dependency for fuzzy filtering in Select and MultiSelect prompts [#176](https://github.com/mikaelmello/inquire/pull/176)
+
+### Internals
+
+- Removed some useless `Vec::reserve()` calls
+
+## [0.6.2] - 2023-05-07
+
+- Allow usage of ANSI escape codes in prompts. [#136](https://github.com/mikaelmello/inquire/pull/136). Thanks to [@JimLynchCodes](https://github.com/JimLynchCodes) for reporting on [#135](https://github.com/mikaelmello/inquire/issues/135).
 
 ## [0.6.1] - 2023-04-08
 
@@ -74,7 +106,7 @@
 
 Features #1 to #4 are all breaking changes and could break the compilation of your program.
 
-Fix #2 representes a change in usability and might be an unexpected behavior.
+Fix #2 represents a change in usability and might be an unexpected behavior.
 
 ### Features
 
@@ -194,7 +226,7 @@ The library is already featureful enough to warrant a higher version number, bum
 - By using a new method to identify the length of the rendered prompt, we avoid possible rendering errors (edge cases) when a string can not render into a single line in the terminal due to a smaller width. Inner calculations could previously predict that the rendered string would fit, by considering that 1 grapheme = 1 column width, but this is not true for e.g. emojis. Now we use unicode_width to fix this behavior.
 - Fixed case where Select/MultiSelect prompts were panicking when a user pressed the down arrow on an empty list, which happens when a filter input does not match any options. #30
 - Fixed incorrect indexes on the output of MultiSelect prompts, where the indexes inside a `ListOption` struct were relative to the output instead of the original input vector. #31
-- Fixed case where IO errors due to not finding a tty devices were not being catched and transformed to `InquireError::NotTTY`. #28
+- Fixed case where IO errors due to not finding a tty devices were not being caught and transformed to `InquireError::NotTTY`. #28
 
 ## [0.0.9] - 2021-08-28
 
@@ -263,7 +295,8 @@ The library is already featureful enough to warrant a higher version number, bum
 
 <!-- next-url -->
 
-[unreleased]: https://github.com/mikaelmello/inquire/compare/v0.6.1...HEAD
+[unreleased]: https://github.com/mikaelmello/inquire/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/mikaelmello/inquire/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/mikaelmello/inquire/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/mikaelmello/inquire/compare/v0.5.3...v0.6.0
 [0.5.3]: https://github.com/mikaelmello/inquire/compare/v0.5.2...v0.5.3

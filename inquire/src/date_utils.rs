@@ -45,18 +45,18 @@ pub fn get_number_month(month: Month) -> u32 {
 }
 pub fn display_month_fr<'a>(month: Month) -> &'a str {
     match month {
-        time::Month::January => "JANVIER",
-        time::Month::February => "FÉVRIER",
-        time::Month::March => "MARS",
-        time::Month::April => "AVRIL",
-        time::Month::May => "MAI",
-        time::Month::June => "JUIN",
-        time::Month::July => "JUILLET",
+        time::Month::January => "Janvier",
+        time::Month::February => "Février",
+        time::Month::March => "Mars",
+        time::Month::April => "Avril",
+        time::Month::May => "Mai",
+        time::Month::June => "Juin",
+        time::Month::July => "Juillet",
         time::Month::August => "Août",
-        time::Month::September => "SEPTEMBRE",
-        time::Month::October => "OCTOBRE",
-        time::Month::November => "NOVEMBRE",
-        time::Month::December => "DÉCEMBRE",
+        time::Month::September => "Septembre",
+        time::Month::October => "Octobre",
+        time::Month::November => "Novembre",
+        time::Month::December => "Décembre",
     }
 }
 /// type for using with CustomType because the type time::Date doesn't implement FromStr

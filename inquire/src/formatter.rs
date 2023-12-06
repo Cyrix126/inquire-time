@@ -202,7 +202,7 @@ pub type DateFomStrFormatter<'a> = &'a dyn Fn(DateFromStr) -> String;
 /// assert_eq!(String::from("Times Square"), formatter("Times Square"));
 /// assert_eq!(String::from("times sQuare"), formatter("times sQuare"));
 /// ```
-pub const DEFAULT_STRING_FORMATTER: StringFormatter = &|val| String::from(val);
+pub const DEFAULT_STRING_FORMATTER: StringFormatter<'_> = &|val| String::from(val);
 
 /// String formatter used by default in [Confirm](crate::Confirm) prompts.
 /// Translates `bool` to `"Yes"` and `false` to `"No"`.
@@ -216,7 +216,7 @@ pub const DEFAULT_STRING_FORMATTER: StringFormatter = &|val| String::from(val);
 /// assert_eq!(String::from("Yes"), formatter(true));
 /// assert_eq!(String::from("No"), formatter(false));
 /// ```
-pub const DEFAULT_BOOL_FORMATTER: BoolFormatter = &|ans| {
+pub const DEFAULT_BOOL_FORMATTER: BoolFormatter<'_> = &|ans| {
     if ans {
         String::from("Yes")
     } else {
@@ -244,7 +244,7 @@ pub const DEFAULT_BOOL_FORMATTER: BoolFormatter = &|ans| {
 ///     formatter(NaiveDate::from_ymd(2021, 1, 1)),
 /// );
 /// ```
-pub const DEFAULT_DATE_FORMATTER: DateFormatter = &|val| {
+pub const DEFAULT_DATE_FORMATTER: DateFormatter<'_> = &|val| {
     val.format(&time::format_description::parse("[day]-[month]-[year]").unwrap())
         .unwrap()
 };
@@ -268,7 +268,7 @@ pub const DEFAULT_DATE_FORMATTER: DateFormatter = &|val| {
 ///     formatter(Date::from_ymd(2021, 1, 1)),
 /// );
 /// ```
-pub const DEFAULT_DATE_FROM_STR_FORMATTER: DateFomStrFormatter = &|val| {
+pub const DEFAULT_DATE_FROM_STR_FORMATTER: DateFomStrFormatter<'_> = &|val| {
     val.date
         .format(&time::format_description::parse("[day]-[month]-[year]").unwrap())
         .unwrap()

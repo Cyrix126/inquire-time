@@ -12,13 +12,14 @@
 //! - [`CustomType`] for text prompts that you would like to parse to a custom type, such as numbers or UUIDs;
 //! - [`Password`] for secretive text prompts.
 //!
+//! \* The Editor and DateSelect prompts are available by enabling the `editor` and `date` features, respectively.
+//!
 //! Check out the [GitHub repository](https://github.com/mikaelmello/inquire) to see demos of what you can do with `inquire`.
 //!
 //! # Features
 //!
 //! - Cross-platform, supporting UNIX and Windows terminals (thanks to [crossterm](https://crates.io/crates/crossterm));
 //! - Several kinds of prompts to suit your needs;
-//! - Standardized error handling (thanks to [thiserror](https://crates.io/crates/thiserror));
 //! - Support for fine-grained configuration for each prompt type, allowing you to customize:
 //!   - Default values;
 //!   - Input validators and formatters;
@@ -28,8 +29,6 @@
 //!   - Custom parsers for [`Confirm`] and [`CustomType`] prompts;
 //!   - Custom extensions for files created by [`Editor`] prompts;
 //!   - and many others!
-//!
-//! \* Date-related features are available by enabling the `date` feature.
 //!
 //! # Simple Example
 //!
@@ -66,6 +65,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![allow(clippy::bool_to_int_with_if)]
+mod ansi;
 pub mod autocompletion;
 mod config;
 #[cfg(feature = "date")]
@@ -87,4 +87,5 @@ pub mod validator;
 pub use crate::autocompletion::Autocomplete;
 pub use crate::config::set_global_render_config;
 pub use crate::error::{CustomUserError, InquireError};
+pub use crate::input::action::*;
 pub use crate::prompts::*;

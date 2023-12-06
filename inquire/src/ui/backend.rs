@@ -1,15 +1,20 @@
+use crate::ansi::AnsiStrippable;
 use std::{collections::BTreeSet, fmt::Display, io::Result};
 
 use unicode_width::UnicodeWidthChar;
 
 use crate::{
+    error::InquireResult,
     input::Input,
     list_option::ListOption,
     terminal::{Terminal, TerminalSize},
     ui::{IndexPrefix, Key, RenderConfig, Styled},
     utils::{int_log10, Page},
     validator::ErrorMessage,
+    {Action, InnerAction},
 };
+
+use super::InputReader;
 
 pub trait CommonBackend {
     fn read_key(&mut self) -> Result<Key>;
@@ -31,7 +36,7 @@ pub trait TextBackend: CommonBackend {
         default: Option<&str>,
         cur_input: &Input,
     ) -> Result<()>;
-    fn render_suggestions<D: Display>(&mut self, page: Page<ListOption<D>>) -> Result<()>;
+    fn render_suggestions<D: Display>(&mut self, page: Page<'_, ListOption<D>>) -> Result<()>;
 }
 
 #[cfg(feature = "editor")]
@@ -41,14 +46,14 @@ pub trait EditorBackend: CommonBackend {
 
 pub trait SelectBackend: CommonBackend {
     fn render_select_prompt(&mut self, prompt: &str, cur_input: &Input) -> Result<()>;
-    fn render_options<D: Display>(&mut self, page: Page<ListOption<D>>) -> Result<()>;
+    fn render_options<D: Display>(&mut self, page: Page<'_, ListOption<D>>) -> Result<()>;
 }
 
 pub trait MultiSelectBackend: CommonBackend {
     fn render_multiselect_prompt(&mut self, prompt: &str, cur_input: &Input) -> Result<()>;
     fn render_options<D: Display>(
         &mut self,
-        page: Page<ListOption<D>>,
+        page: Page<'_, ListOption<D>>,
         checked: &BTreeSet<usize>,
     ) -> Result<()>;
 }
@@ -92,6 +97,7 @@ impl<'a, T> Backend<'a, T>
 where
     T: Terminal,
 {
+    #[allow(clippy::large_types_passed_by_value)]
     pub fn new(terminal: T, render_config: RenderConfig<'a>) -> Result<Self> {
         let terminal_size = terminal.get_size().unwrap_or(TerminalSize {
             width: 1000,
@@ -120,7 +126,7 @@ where
 
         let mut cur_pos = Position::default();
 
-        for (idx, c) in input.chars().enumerate() {
+        for (idx, c) in input.ansi_stripped_chars().enumerate() {
             let len = UnicodeWidthChar::width(c).unwrap_or(0) as u16;
 
             if c == '\n' {
@@ -205,7 +211,7 @@ where
     fn print_option_prefix<D: Display>(
         &mut self,
         option_relative_index: usize,
-        page: &Page<ListOption<D>>,
+        page: &Page<'_, ListOption<D>>,
     ) -> Result<()> {
         let empty_prefix = Styled::new(" ");
 
@@ -226,7 +232,7 @@ where
         &mut self,
         option_relative_index: usize,
         option: &ListOption<D>,
-        page: &Page<ListOption<D>>,
+        page: &Page<'_, ListOption<D>>,
     ) -> Result<()> {
         let stylesheet = if let Some(selected_option_style) = self.render_config.selected_option {
             match page.cursor {
@@ -458,7 +464,7 @@ where
         self.print_prompt_with_input(prompt, default, cur_input)
     }
 
-    fn render_suggestions<D: Display>(&mut self, page: Page<ListOption<D>>) -> Result<()> {
+    fn render_suggestions<D: Display>(&mut self, page: Page<'_, ListOption<D>>) -> Result<()> {
         for (idx, option) in page.content.iter().enumerate() {
             self.print_option_prefix(idx, &page)?;
 
@@ -500,7 +506,7 @@ where
         self.print_prompt_with_input(prompt, None, cur_input)
     }
 
-    fn render_options<D: Display>(&mut self, page: Page<ListOption<D>>) -> Result<()> {
+    fn render_options<D: Display>(&mut self, page: Page<'_, ListOption<D>>) -> Result<()> {
         for (idx, option) in page.content.iter().enumerate() {
             self.print_option_prefix(idx, &page)?;
 
@@ -530,7 +536,7 @@ where
 
     fn render_options<D: Display>(
         &mut self,
-        page: Page<ListOption<D>>,
+        page: Page<'_, ListOption<D>>,
         checked: &BTreeSet<usize>,
     ) -> Result<()> {
         for (idx, option) in page.content.iter().enumerate() {
@@ -662,7 +668,10 @@ pub mod date {
                 date_it = date_it.sub(Duration::weeks(1));
             } else {
                 while date_it.weekday() != week_start {
-                    date_it = date_it.previous_day().unwrap();
+                    date_it = match date_it.previous_day() {
+                        Some(date) => date,
+                        None => break,
+                    };
                 }
             }
 
@@ -709,7 +718,7 @@ pub mod date {
                     let token = Styled::new(date).with_style_sheet(style_sheet);
                     self.terminal.write_styled(&token)?;
 
-                    date_it = date_it.next_day().unwrap();
+                    date_it = date_it.next_day().unwrap_or(date_it);
                 }
 
                 self.new_line()?;
@@ -764,7 +773,22 @@ where
     T: Terminal,
 {
     fn drop(&mut self) {
-        let _ = self.move_cursor_to_end_position();
-        let _ = self.terminal.cursor_show();
+        let _unused = self.move_cursor_to_end_position();
+        let _unused = self.terminal.cursor_show();
+    }
+}
+
+impl<'a, I, T> InputReader<I> for Backend<'a, T>
+where
+    T: Terminal,
+    I: Copy + Clone + PartialEq + Eq,
+{
+    fn next_action<C>(&mut self, config: &C) -> InquireResult<Option<Action<I>>>
+    where
+        I: InnerAction<Config = C>,
+    {
+        let key = self.read_key()?;
+        let action = Action::from_key(key, config);
+        Ok(action)
     }
 }

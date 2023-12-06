@@ -1,8 +1,11 @@
-[![Latest Version]][crates.io] ![Build status] ![Supported platforms] ![License]
+[![Latest Version]][crates.io] [![Docs]][docs.rs] ![Build status] ![Unsafe forbidden] ![Supported platforms] ![License]
 
 [crates.io]: https://crates.io/crates/inquire
 [latest version]: https://img.shields.io/crates/v/inquire.svg
+[docs]: https://img.shields.io/docsrs/inquire/latest?logo=docs.rs
+[docs.rs]: https://docs.rs/inquire
 [build status]: https://github.com/mikaelmello/inquire/actions/workflows/build.yml/badge.svg
+[unsafe forbidden]: https://img.shields.io/badge/unsafe-forbidden-success.svg
 [supported platforms]: https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-success
 [license]: https://img.shields.io/crates/l/inquire.svg
 
@@ -30,7 +33,7 @@ It provides several different prompts in order to interactively ask the user for
 ## Demo
 
 ![Animated GIF making a demonstration of a questionnaire created with this library. You can replay this recording in your terminal with asciinema play command - asciinema play ./assets/expense_tracker.cast](./assets/expense_tracker.gif)
-[Source](./examples/expense_tracker.rs)
+[Source](./inquire/examples/expense_tracker.rs)
 
 ## Features
 
@@ -47,7 +50,7 @@ It provides several different prompts in order to interactively ask the user for
   - Help messages;
   - Autocompletion for [`Text`] prompts;
   - Confirmation messages for [`Password`] prompts;
-  - Custom list filters for Select and [`MultiSelect`] prompts;
+  - Custom list filters for [`Select`] and [`MultiSelect`] prompts;
   - Custom parsers for [`Confirm`] and [`CustomType`] prompts;
   - Custom extensions for files created by [`Editor`] prompts;
   - and many others!
@@ -57,7 +60,7 @@ It provides several different prompts in order to interactively ask the user for
 Examples can be found in the `examples` directory. Run them to see basic behavior:
 
 ```
-$ cargo run --example expense_tracker --features date
+cargo run --example expense_tracker --features date
 ```
 
 ## Usage
@@ -65,13 +68,13 @@ $ cargo run --example expense_tracker --features date
 Put this line in your `Cargo.toml`, under `[dependencies]`.
 
 ```
-inquire = "0.6.1"
+inquire = "0.6.2"
 ```
 
 \* This prompt type is gated under a feature flag, e.g.:
 
 ```
-inquire = { version = "0.6.1", features = ["date"] }
+inquire = { version = "0.6.2", features = ["date"] }
 ```
 
 # Cross-cutting concerns
@@ -86,12 +89,12 @@ With `RenderConfig`, you can customize foreground color, background color and at
 
 This allows you to have greater control over the style of your application while continuing to have a clean API to create prompts as smoothly as possible.
 
-In the [`render_config.rs`](./examples/render_config.rs) example, you can take a look at the capabilities of this API. The example is exactly the same one as [`expense_tracker.rs`](./examples/expense_tracker.rs), but with several style aspects customized. Take a look at their differences:
+In the [`render_config.rs`](./inquire/examples/render_config.rs) example, you can take a look at the capabilities of this API. The example is exactly the same one as [`expense_tracker.rs`](./inquire/examples/expense_tracker.rs), but with several style aspects customized. Take a look at their differences:
 
 ![Animated GIF making a demonstration of the expense_tracker example. You can replay this recording in your terminal with asciinema play command - asciinema play ./assets/expense_tracker.cast](./assets/expense_tracker_gifcast.gif)
-[Source](./examples/expense_tracker.rs)
+[Source](./inquire/examples/expense_tracker.rs)
 ![Animated GIF making a demonstration of the render_config example. You can replay this recording in your terminal with asciinema play command - asciinema play ./assets/render_config.cast](./assets/render_config_gifcast.gif)
-[Source](./examples/render_config.rs)
+[Source](./inquire/examples/render_config.rs)
 
 ## Validation
 
@@ -109,9 +112,9 @@ The validators are typed as a reference to `dyn Fn`. This allows both functions 
 
 Finally, `inquire` has a feature called `macros` that is included by default. When the feature is on, several shorthand macros for the builtin validators are exported at the root-level of the library. Check their documentation to see more details, they provide full-featured examples.
 
-In the [demo](#Demo) you can see the behavior of an input not passing the requirements in the _amount_ prompt, when the error message "Please type a valid number" is displayed. _Full disclosure, this error message was displayed due to a parsing, not validation, error, but the user experience is the same for both cases._
+In the [demo](#demo) you can see the behavior of an input not passing the requirements in the _amount_ prompt, when the error message "Please type a valid number" is displayed. _Full disclosure, this error message was displayed due to a parsing, not validation, error, but the user experience is the same for both cases._
 
-If you'd like to see more examples, the [`date.rs`](examples/date.rs) and [`multiselect.rs`](examples/multiselect.rs) files contain custom validators.
+If you'd like to see more examples, the [`date.rs`](./inquire/examples/date.rs) and [`multiselect.rs`](./inquire/examples/multiselect.rs) files contain custom validators.
 
 ## Terminal Back-end
 
@@ -122,13 +125,13 @@ Binary Rust applications that intend to manipulate terminals will probably pick 
 However, if your application already uses a dependency other than crossterm, such as console or termion, you can enable another terminal via feature flags. It is also important to disable inquire's default features as it comes with `crossterm` enabled by default. Such as this:
 
 ```toml
-inquire = { version = "0.6.1", default-features = false, features = ["termion", "date"] }
+inquire = { version = "0.6.2", default-features = false, features = ["termion", "date"] }
 ```
 
 or this:
 
 ```toml
-inquire = { version = "0.6.1", default-features = false, features = ["console", "date"] }
+inquire = { version = "0.6.2", default-features = false, features = ["console", "date"] }
 ```
 
 ## Formatting
@@ -139,7 +142,7 @@ All prompts provide an API to set custom formatters. By setting a formatter, you
 
 Custom formatters receive the input as an argument, with varying types such as `&str`, `chrono::NaiveDate`, and return a `String` containing the output to be displayed to the user. Check the docs for specific examples.
 
-In the [demo](#Demo) you can see this behavior in action with the _amount_ (CustomType) prompt, where a custom formatter adds a '$' character preffix to the input.
+In the [demo](#demo) you can see this behavior in action with the _amount_ (CustomType) prompt, where a custom formatter adds a '$' character preffix to the input.
 
 ## Parsing
 
@@ -149,17 +152,17 @@ The default `bool` parser returns `true` if the input is either `"y"` or `"yes"`
 
 The default parser for [`CustomType`] prompts calls the `parse::<T>()` method on the input string. This means that if you want to create a [`CustomType`] with default settings, the wanted return type must implement the `FromStr` trait.
 
-In the [demo](#Demo) you can see this behavior in action with the _amount_ (CustomType) prompt.
+In the [demo](#demo) you can see this behavior in action with the _amount_ (CustomType) prompt.
 
-## Filtering
+## Scoring
 
-Filtering is applicable to two prompts: [`Select`] and [`MultiSelect`]. They provide the user the ability to filter the options based on their text input. This is specially useful when there are a lot of options for the user to choose from, allowing them to quickly find their expected options.
+Scoring is applicable to two prompts: [`Select`] and [`MultiSelect`]. They provide the user the ability to sort and filter the list of options based on their text input. This is specially useful when there are a lot of options for the user to choose from, allowing them to quickly find their expected options.
 
-Filter functions receive three arguments: the current user input, the option string value and the option index. They must return a `bool` value indicating whether the option should be part of the results or not.
+Scoring functions receive four arguments: the current user input, the option, the option string value and the option index. They must return a `Option<i64>` value indicating whether the option should be part of the results or not.
 
-The default filter function does a naive case-insensitive comparison between the option string value and the current user input, returning `true` if the option string value contains the user input as a substring.
+The default scoring function calculates a match value with the current user input and each option using SkimV2 from [fuzzy_matcher](https://crates.io/crates/fuzzy-matcher), resulting in fuzzy searching and filtering, returning `Some(<score>_i64)` if SkimV2 detects a match.
 
-In the [demo](#Demo) you can see this behavior in action with the _account_ (Select) and _tags_ (MultiSelect) prompts.
+In the [demo](#demo) you can see this behavior in action with the _account_ (Select) and _tags_ (MultiSelect) prompts.
 
 ## Error handling
 
@@ -310,13 +313,13 @@ Like all others, this prompt also allows you to customize several aspects of it:
   - Prints the selected option string value by default.
 - **Page size**: Number of options displayed at once, 7 by default.
 - **Display option indexes**: On long lists, it might be helpful to display the indexes of the options to the user. Via the `RenderConfig`, you can set the display mode of the indexes as a prefix of an option. The default configuration is `None`, to not render any index when displaying the options.
-- **Filter function**: Function that defines if an option is displayed or not based on the current filter input.
+- **Scoring function**: Function that defines the order of options and if an option is displayed or not based on the current user input.
 
 ## MultiSelect
 
 ![Animated GIF making a demonstration of a simple MultiSelect prompt created with this library. You can replay this recording in your terminal with asciinema play command using the file ./assets/multiselect.cast](./assets/multiselect.gif)
 
-The source is too long, find it [here](./examples/multiselect.rs).
+The source is too long, find it [here](./inquire/examples/multiselect.rs).
 
 `MultiSelect` prompts are suitable for when you need the user to select many options (including none if applicable) among a list of them.
 
@@ -341,14 +344,14 @@ Customizable options:
   - No validators are on by default.
 - **Page size**: Number of options displayed at once, 7 by default.
 - **Display option indexes**: On long lists, it might be helpful to display the indexes of the options to the user. Via the `RenderConfig`, you can set the display mode of the indexes as a prefix of an option. The default configuration is `None`, to not render any index when displaying the options.
-- **Filter function**: Function that defines if an option is displayed or not based on the current filter input.
+- **Scoring function**: Function that defines the order of options and if an option is displayed or not based on the current user input.
 - **Keep filter flag**: Whether the current filter input should be cleared or not after a selection is made. Defaults to true.
 
 ## Editor
 
 ![Animated GIF making a demonstration of a simple Editor prompt created with this library. You can replay this recording in your terminal with asciinema play command using the file ./assets/editor.cast](./assets/editor.gif)
 
-The source is too long, find it [here](./examples/editor.rs).
+The source is too long, find it [here](./inquire/examples/editor.rs).
 
 `Editor` prompts are meant for cases where you need the user to write some text that might not fit in a single line, such as long descriptions or commit messages.
 
@@ -391,6 +394,7 @@ match name {
 By default, the password prompt behaves like a standard one you'd see in common CLI applications: the user has no UI indicators about the state of the current input. They do not know how many characters they typed, or which character they typed, with no option to display the current text input.
 
 However, you can still customize these and other behaviors if you wish:
+
 - **Standard display mode**: Set the display mode of the text input among hidden, masked and full via the `PasswordDisplayMode` enum.
   - Hidden: default behavior, no UI indicators.
   - Masked: behaves like a normal text input, except that all characters of the input are masked to a special character, which is `'*'` by default but can be customized via `RenderConfig`.

@@ -1,19 +1,26 @@
-use std::{
-    cmp::{max, min},
-    ops::Add,
-};
+mod action;
+mod config;
+mod prompt;
+#[cfg(test)]
+#[cfg(feature = "crossterm")]
+mod test;
 
-use time::{Date, Duration};
+pub use action::*;
+
+use time::Date;
 
 use crate::{
     config::get_configuration,
-    date_utils::{get_current_date, get_month, get_number_month},
+    date_utils::get_current_date,
     error::{InquireError, InquireResult},
     formatter::{self, DateFormatter},
+    prompts::prompt::Prompt,
     terminal::{get_default_terminal, Terminal},
-    ui::{date::DateSelectBackend, Backend, Key, KeyModifiers, RenderConfig},
-    validator::{DateValidator, ErrorMessage, Validation},
+    ui::{Backend, RenderConfig},
+    validator::DateValidator,
 };
+
+use self::prompt::DateSelectPrompt;
 
 /// Prompt that allows user to select a date (time not supported) from an interactive calendar. Available via the `date` feature.
 ///
@@ -98,7 +105,7 @@ pub struct DateSelect<'a> {
     ///
     /// When overriding the config in a prompt, NO_COLOR is no longer considered and your
     /// config is treated as the only source of truth. If you want to customize colors
-    /// and still suport NO_COLOR, you will have to do this on your end.
+    /// and still support NO_COLOR, you will have to do this on your end.
     pub render_config: RenderConfig<'a>,
 }
 
@@ -193,12 +200,6 @@ impl<'a> DateSelect<'a> {
     where
         V: DateValidator + 'static,
     {
-        // Directly make space for at least 5 elements, so we won't to re-allocate too often when
-        // calling this function repeatedly.
-        if self.validators.capacity() == 0 {
-            self.validators.reserve(5);
-        }
-
         self.validators.push(Box::new(validator));
         self
     }
@@ -237,7 +238,7 @@ impl<'a> DateSelect<'a> {
     ///
     /// When overriding the config in a prompt, NO_COLOR is no longer considered and your
     /// config is treated as the only source of truth. If you want to customize colors
-    /// and still suport NO_COLOR, you will have to do this on your end.
+    /// and still support NO_COLOR, you will have to do this on your end.
     pub fn with_render_config(mut self, render_config: RenderConfig<'a>) -> Self {
         self.render_config = render_config;
         self
@@ -273,272 +274,5 @@ impl<'a> DateSelect<'a> {
         backend: &mut Backend<'a, T>,
     ) -> InquireResult<Date> {
         DateSelectPrompt::new(self)?.prompt(backend)
-    }
-}
-
-struct DateSelectPrompt<'a> {
-    message: &'a str,
-    current_date: Date,
-    week_start: time::Weekday,
-    min_date: Option<Date>,
-    max_date: Option<Date>,
-    help_message: Option<&'a str>,
-    vim_mode: bool,
-    formatter: DateFormatter<'a>,
-    validators: Vec<Box<dyn DateValidator>>,
-    error: Option<ErrorMessage>,
-}
-
-impl<'a> DateSelectPrompt<'a> {
-    fn new(so: DateSelect<'a>) -> InquireResult<Self> {
-        if let Some(min_date) = so.min_date {
-            if min_date > so.starting_date {
-                return Err(InquireError::InvalidConfiguration(
-                    "Min date can not be greater than starting date".into(),
-                ));
-            }
-        }
-        if let Some(max_date) = so.max_date {
-            if max_date < so.starting_date {
-                return Err(InquireError::InvalidConfiguration(
-                    "Max date can not be smaller than starting date".into(),
-                ));
-            }
-        }
-
-        Ok(Self {
-            message: so.message,
-            current_date: so.starting_date,
-            min_date: so.min_date,
-            max_date: so.max_date,
-            week_start: so.week_start,
-            help_message: so.help_message,
-            vim_mode: so.vim_mode,
-            formatter: so.formatter,
-            validators: so.validators,
-            error: None,
-        })
-    }
-
-    fn shift_date(&mut self, duration: time::Duration) {
-        self.update_date(self.current_date.add(duration));
-    }
-
-    fn shift_months(&mut self, qty: i32) {
-        let date = self.current_date;
-
-        let years = qty / 12;
-        let months = qty % 12;
-
-        let new_year = date.year() + years;
-        let cur_month = get_number_month(date.month());
-        let mut new_month = (cur_month as i32 + months) % 12;
-        if new_month < 1 {
-            new_month += 12;
-        }
-
-        let new_date = date
-            .replace_month(get_month(new_month as u32))
-            .and_then(|d| d.replace_year(new_year))
-            .ok();
-
-        if let Some(new_date) = new_date {
-            self.update_date(new_date);
-        }
-    }
-
-    fn update_date(&mut self, new_date: Date) {
-        self.current_date = new_date;
-        if let Some(min_date) = self.min_date {
-            self.current_date = max(self.current_date, min_date);
-        }
-        if let Some(max_date) = self.max_date {
-            self.current_date = min(self.current_date, max_date);
-        }
-    }
-
-    fn on_change(&mut self, key: Key) {
-        match key {
-            Key::Up(KeyModifiers::NONE) => self.shift_date(Duration::weeks(-1)),
-            Key::Char('k', KeyModifiers::NONE) if self.vim_mode => {
-                self.shift_date(Duration::weeks(-1))
-            }
-
-            Key::Down(KeyModifiers::NONE) | Key::Tab => self.shift_date(Duration::weeks(1)),
-            Key::Char('j', KeyModifiers::NONE) if self.vim_mode => {
-                self.shift_date(Duration::weeks(1))
-            }
-
-            Key::Left(KeyModifiers::NONE) => self.shift_date(Duration::days(-1)),
-            Key::Char('h', KeyModifiers::NONE) if self.vim_mode => {
-                self.shift_date(Duration::days(-1))
-            }
-
-            Key::Right(KeyModifiers::NONE) => self.shift_date(Duration::days(1)),
-            Key::Char('l', KeyModifiers::NONE) if self.vim_mode => {
-                self.shift_date(Duration::days(1))
-            }
-
-            Key::Up(KeyModifiers::CONTROL) => self.shift_months(-12),
-            Key::Down(KeyModifiers::CONTROL) => self.shift_months(12),
-            Key::Left(KeyModifiers::CONTROL) => self.shift_months(-1),
-            Key::Right(KeyModifiers::CONTROL) => self.shift_months(1),
-            _ => {}
-        }
-    }
-
-    fn validate_current_answer(&self) -> InquireResult<Validation> {
-        for validator in &self.validators {
-            match validator.validate(self.current_date) {
-                Ok(Validation::Valid) => {}
-                Ok(Validation::Invalid(msg)) => return Ok(Validation::Invalid(msg)),
-                Err(err) => return Err(InquireError::Custom(err)),
-            }
-        }
-
-        Ok(Validation::Valid)
-    }
-
-    fn cur_answer(&self) -> Date {
-        self.current_date
-    }
-
-    fn render<B: DateSelectBackend>(&mut self, backend: &mut B) -> InquireResult<()> {
-        let prompt = &self.message;
-
-        backend.frame_setup()?;
-
-        if let Some(err) = &self.error {
-            backend.render_error_message(err)?;
-        }
-
-        backend.render_calendar_prompt(prompt)?;
-
-        backend.render_calendar(
-            self.current_date.month(),
-            self.current_date.year(),
-            self.week_start,
-            get_current_date(),
-            self.current_date,
-            self.min_date,
-            self.max_date,
-        )?;
-
-        if let Some(help_message) = self.help_message {
-            backend.render_help_message(help_message)?;
-        }
-
-        backend.frame_finish()?;
-
-        Ok(())
-    }
-
-    fn prompt<B: DateSelectBackend>(mut self, backend: &mut B) -> InquireResult<Date> {
-        let final_answer: Date;
-
-        loop {
-            self.render(backend)?;
-
-            let key = backend.read_key()?;
-
-            match key {
-                Key::Interrupt => interrupt_prompt!(),
-                Key::Cancel => cancel_prompt!(backend, self.message),
-                Key::Submit | Key::Char(' ', _) => match self.validate_current_answer()? {
-                    Validation::Valid => {
-                        final_answer = self.cur_answer();
-                        break;
-                    }
-                    Validation::Invalid(msg) => {
-                        self.error = Some(msg);
-                    }
-                },
-                key => self.on_change(key),
-            }
-        }
-
-        let formatted = (self.formatter)(final_answer);
-
-        finish_prompt_with_answer!(backend, self.message, &formatted, final_answer);
-    }
-}
-
-#[cfg(test)]
-#[cfg(feature = "crossterm")]
-mod test {
-    use crate::{
-        date_utils::get_current_date,
-        terminal::crossterm::CrosstermTerminal,
-        ui::{Backend, RenderConfig},
-        validator::Validation,
-        DateSelect,
-    };
-    use crossterm::event::{KeyCode, KeyEvent};
-
-    fn default<'a>() -> DateSelect<'a> {
-        DateSelect::new("Question?")
-    }
-
-    macro_rules! date_test {
-        ($name:ident,$input:expr,$output:expr) => {
-            date_test! {$name, $input, $output, default()}
-        };
-
-        ($name:ident,$input:expr,$output:expr,$prompt:expr) => {
-            #[test]
-            fn $name() {
-                let read: Vec<KeyEvent> = $input.into_iter().map(KeyEvent::from).collect();
-                let mut read = read.iter();
-
-                let mut write: Vec<u8> = Vec::new();
-                let terminal = CrosstermTerminal::new_with_io(&mut write, &mut read);
-                let mut backend = Backend::new(terminal, RenderConfig::default()).unwrap();
-
-                let ans = $prompt.prompt_with_backend(&mut backend).unwrap();
-
-                assert_eq!($output, ans);
-            }
-        };
-    }
-
-    date_test!(today_date, vec![KeyCode::Enter], get_current_date());
-
-    date_test!(
-        custom_default_date,
-        vec![KeyCode::Enter],
-        Date::from_ymd(2021, 1, 9),
-        DateSelect::new("Date").with_default(Date::from_ymd(2021, 1, 9))
-    );
-
-    #[test]
-    /// Tests that a closure that actually closes on a variable can be used
-    /// as a DateSelect validator.
-    fn closure_validator() {
-        let read: Vec<KeyEvent> = vec![KeyCode::Enter, KeyCode::Left, KeyCode::Enter]
-            .into_iter()
-            .map(KeyEvent::from)
-            .collect();
-        let mut read = read.iter();
-
-        let today_date = get_current_date();
-
-        let validator = move |d| {
-            if today_date > d {
-                Ok(Validation::Valid)
-            } else {
-                Ok(Validation::Invalid("Date must be in the past".into()))
-            }
-        };
-
-        let mut write: Vec<u8> = Vec::new();
-        let terminal = CrosstermTerminal::new_with_io(&mut write, &mut read);
-        let mut backend = Backend::new(terminal, RenderConfig::default()).unwrap();
-
-        let ans = DateSelect::new("Question")
-            .with_validator(validator)
-            .prompt_with_backend(&mut backend)
-            .unwrap();
-
-        assert_eq!(today_date.pred(), ans);
     }
 }
