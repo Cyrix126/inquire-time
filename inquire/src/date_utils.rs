@@ -1,6 +1,6 @@
 use core::panic;
-use derive_more::Display;
-use std::str::FromStr;
+// use derive_more::Display;
+use std::{fmt, str::FromStr};
 use time::{error::Parse, macros::format_description, Date, Month, OffsetDateTime};
 pub fn get_current_date() -> Date {
     OffsetDateTime::now_local().unwrap().date()
@@ -61,12 +61,21 @@ pub fn display_month_fr<'a>(month: Month) -> &'a str {
 }
 /// type for using with CustomType because the type time::Date doesn't implement FromStr
 /// The type DateFromStr has the same implementation of FromStr like NaiveDate of chrono.
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug)]
 pub struct DateFromStr {
     /// the filed date contain the time::Date value
     pub date: Date,
 }
-
+impl fmt::Display for DateFromStr {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Write strictly the first element into the supplied output
+        // stream: `f`. Returns `fmt::Result` which indicates whether the
+        // operation succeeded or failed. Note that `write!` uses syntax which
+        // is very similar to `println!`.
+        write!(f, "{}", self.date)
+    }
+}
 impl FromStr for DateFromStr {
     type Err = Parse;
 

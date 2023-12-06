@@ -23,7 +23,7 @@ doctest = true
 default = ["macros", "termion", "one-liners", "fuzzy", "date"]
 macros = []
 one-liners = []
-date = ["time", "derive_more"]
+date = ["time"]
 editor = ["tempfile"]
 fuzzy = ["fuzzy-matcher"]
 
@@ -36,7 +36,7 @@ crossterm = { version = "0.25", optional = true }
 termion = { version = "2.0", optional = true }
 console = { version = "0.15", optional = true, features = ["windows-console-colors"] }
 derive_more = {version = "0.99", optional = true, default-features= false, features = ["display"]}
-time = { version = "0.3", features = ["macros", "local-offset", "formatting", "parsing"],optional = true }
+time = { version = "0.3", default-features=false,features = ["macros", "local-offset", "formatting", "parsing"],optional = true }
 tempfile = { version = "3", optional = true }
 fuzzy-matcher = { version = "0.3.7", default-features = false, optional = true }
 bitflags = "2"
