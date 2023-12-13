@@ -3,7 +3,8 @@ use core::panic;
 use std::{fmt, str::FromStr};
 use time::{error::Parse, macros::format_description, Date, Month, OffsetDateTime};
 pub fn get_current_date() -> Date {
-    OffsetDateTime::now_local().unwrap().date()
+    let datetime = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
+    datetime.date()
 }
 
 pub fn get_start_date(month: Month, year: i32) -> Date {
