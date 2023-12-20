@@ -26,6 +26,7 @@ one-liners = []
 date = ["time"]
 editor = ["tempfile"]
 fuzzy = ["fuzzy-matcher"]
+lang-fr = []
 
 [package.metadata.docs.rs]
 all-features = true

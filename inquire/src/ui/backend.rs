@@ -578,13 +578,11 @@ pub mod date {
 
     use time::Duration;
 
-    use crate::{
-        date_utils::{display_month_fr, get_start_date},
-        terminal::Terminal,
-        ui::Styled,
-    };
+    use crate::{date_utils::get_start_date, terminal::Terminal, ui::Styled};
 
     use super::{Backend, CommonBackend};
+    #[cfg(feature = "lang-fr")]
+    use crate::date_utils::display_month_fr;
 
     pub trait DateSelectBackend: CommonBackend {
         fn render_calendar_prompt(&mut self, prompt: &str) -> Result<()>;
@@ -631,7 +629,10 @@ pub mod date {
             }
 
             // print header (month year)
+            #[cfg(feature = "lang-fr")]
             let header = format!("{} {}", display_month_fr(month).to_lowercase(), year);
+            #[cfg(not(feature = "lang-fr"))]
+            let header = format!("{} {}", format!("{month}").to_lowercase(), year);
             let header = format!("{header:^20}");
             let header = Styled::new(header).with_style_sheet(self.render_config.calendar.header);
 
@@ -647,7 +648,7 @@ pub mod date {
             for _ in 0..7 {
                 let mut formatted = format!("{current_weekday}");
                 formatted.make_ascii_lowercase();
-                formatted.pop();
+                formatted.truncate(2);
                 week_days.push(formatted);
 
                 current_weekday = current_weekday.next();

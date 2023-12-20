@@ -44,6 +44,7 @@ pub fn get_number_month(month: Month) -> u32 {
         time::Month::December => 12,
     }
 }
+#[cfg(feature = "lang-fr")]
 pub fn display_month_fr<'a>(month: Month) -> &'a str {
     match month {
         time::Month::January => "Janvier",
