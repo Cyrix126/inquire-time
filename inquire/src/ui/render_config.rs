@@ -217,6 +217,12 @@ impl<'a> RenderConfig<'a> {
         self
     }
 
+    /// Sets the answered prompt prefix and its style sheet.
+    pub fn with_answered_prompt_prefix(mut self, answered_prompt_prefix: Styled<&'a str>) -> Self {
+        self.answered_prompt_prefix = answered_prompt_prefix;
+        self
+    }
+
     /// Sets style for text inputs.
     pub fn with_text_input(mut self, text_input: StyleSheet) -> Self {
         self.text_input = text_input;
@@ -452,7 +458,7 @@ pub mod calendar {
         /// When `None`, no custom style sheet will be applied and the native
         /// terminal cursor will be used in the first char of the date number.
         ///
-        /// Whem `Some(_)`, the style sheet will be applied to the two columns
+        /// When `Some(_)`, the style sheet will be applied to the two columns
         /// where the number is positioned, padded to spaces in the left if the
         /// number only has one digit. e.g. " 5" or "23".
         pub selected_date: Option<StyleSheet>,

@@ -15,8 +15,8 @@ use crate::{
     error::{InquireError, InquireResult},
     formatter::{self, DateFormatter},
     prompts::prompt::Prompt,
-    terminal::{get_default_terminal, Terminal},
-    ui::{Backend, RenderConfig},
+    terminal::get_default_terminal,
+    ui::{date::DateSelectBackend, Backend, RenderConfig},
     validator::DateValidator,
 };
 
@@ -83,10 +83,6 @@ pub struct DateSelect<'a> {
     /// Help message to be presented to the user.
     pub help_message: Option<&'a str>,
 
-    /// Whether vim mode is enabled. When enabled, the user can
-    /// navigate through the options using hjkl.
-    pub vim_mode: bool,
-
     /// Function that formats the user input and presents it to the user as the final rendering of the prompt.
     pub formatter: DateFormatter<'a>,
 
@@ -118,7 +114,7 @@ impl<'a> DateSelect<'a> {
 
     /// Default help message.
     pub const DEFAULT_HELP_MESSAGE: Option<&'a str> =
-        Some("arrows to move, with ctrl to move months and years, enter to select");
+        Some("arrows to move, []{} move months and years, enter to select");
 
     /// Default validators added to the [DateSelect] prompt, none.
     pub const DEFAULT_VALIDATORS: Vec<Box<dyn DateValidator>> = vec![];
@@ -140,7 +136,6 @@ impl<'a> DateSelect<'a> {
             min_date: Self::DEFAULT_MIN_DATE,
             max_date: Self::DEFAULT_MAX_DATE,
             help_message: Self::DEFAULT_HELP_MESSAGE,
-            vim_mode: Self::DEFAULT_VIM_MODE,
             formatter: Self::DEFAULT_FORMATTER,
             validators: Self::DEFAULT_VALIDATORS,
             week_start: Self::DEFAULT_WEEK_START,
@@ -219,12 +214,6 @@ impl<'a> DateSelect<'a> {
         self
     }
 
-    /// Enables or disables vim_mode.
-    pub fn with_vim_mode(mut self, vim_mode: bool) -> Self {
-        self.vim_mode = vim_mode;
-        self
-    }
-
     /// Sets the formatter.
     pub fn with_formatter(mut self, formatter: DateFormatter<'a>) -> Self {
         self.formatter = formatter;
@@ -264,14 +253,14 @@ impl<'a> DateSelect<'a> {
     /// Parses the provided behavioral and rendering options and prompts
     /// the CLI user for input according to the defined rules.
     pub fn prompt(self) -> InquireResult<Date> {
-        let terminal = get_default_terminal()?;
-        let mut backend = Backend::new(terminal, self.render_config)?;
+        let (input_reader, terminal) = get_default_terminal()?;
+        let mut backend = Backend::new(input_reader, terminal, self.render_config)?;
         self.prompt_with_backend(&mut backend)
     }
 
-    pub(crate) fn prompt_with_backend<T: Terminal>(
+    pub(crate) fn prompt_with_backend<B: DateSelectBackend>(
         self,
-        backend: &mut Backend<'a, T>,
+        backend: &mut B,
     ) -> InquireResult<Date> {
         DateSelectPrompt::new(self)?.prompt(backend)
     }

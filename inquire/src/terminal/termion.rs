@@ -1,5 +1,8 @@
 use core::fmt;
-use std::io::{stderr, stdin, Result, Stderr, Stdin, Write};
+use std::{
+    fs::File,
+    io::{Result, Write},
+};
 
 use termion::{
     color::{self, Color},
@@ -11,46 +14,56 @@ use termion::{
 };
 
 use crate::{
-    error::{InquireError, InquireResult},
-    ui::{Attributes, Styled},
+    error::InquireResult,
+    ui::{Attributes, InputReader, Styled},
 };
 
-use super::{Terminal, INITIAL_IN_MEMORY_CAPACITY};
+use super::Terminal;
 
+#[allow(clippy::upper_case_acronyms)]
 enum IO<'a> {
+    TTY(RawTerminal<File>),
     #[allow(unused)]
-    Std {
-        r: Keys<Stdin>,
-        w: RawTerminal<Stderr>,
-    },
+    Custom(&'a mut (dyn Write)),
+}
+
+pub struct TermionKeyReader {
+    keys: Keys<File>,
+}
+
+impl TermionKeyReader {
     #[allow(unused)]
-    Custom {
-        r: &'a mut dyn Iterator<Item = &'a Key>,
-        w: &'a mut (dyn Write),
-    },
+    pub fn new() -> InquireResult<Self> {
+        Ok(Self {
+            keys: termion::get_tty()?.keys(),
+        })
+    }
+}
+
+impl InputReader for TermionKeyReader {
+    fn read_key(&mut self) -> InquireResult<crate::ui::Key> {
+        loop {
+            if let Some(key) = self.keys.next() {
+                let key = key?;
+                return Ok(key.into());
+            }
+        }
+    }
 }
 
 pub struct TermionTerminal<'a> {
     io: IO<'a>,
-    in_memory_content: String,
 }
 
 impl<'a> TermionTerminal<'a> {
     #[allow(unused)]
     pub fn new() -> InquireResult<Self> {
-        let raw_mode = stderr()
-            .into_raw_mode()
-            .map_err(|e| match e.raw_os_error() {
-                Some(25 | 6) => InquireError::NotTTY,
-                _ => e.into(),
-            });
+        let tty = termion::get_tty()?;
+        let raw_terminal = tty.into_raw_mode()?;
+        let keys = raw_terminal.try_clone()?.keys();
 
         Ok(Self {
-            io: IO::Std {
-                r: stdin().keys(),
-                w: raw_mode?,
-            },
-            in_memory_content: String::with_capacity(INITIAL_IN_MEMORY_CAPACITY),
+            io: IO::TTY(raw_terminal),
         })
     }
 
@@ -58,23 +71,16 @@ impl<'a> TermionTerminal<'a> {
     ///
     /// Will return `std::io::Error` if it fails to get terminal size
     #[cfg(test)]
-    pub fn new_with_io<W: 'a + Write>(
-        writer: &'a mut W,
-        reader: &'a mut dyn Iterator<Item = &'a Key>,
-    ) -> Self {
+    pub fn new_with_writer<W: 'a + Write>(writer: &'a mut W) -> Self {
         Self {
-            io: IO::Custom {
-                r: reader,
-                w: writer,
-            },
-            in_memory_content: String::with_capacity(INITIAL_IN_MEMORY_CAPACITY),
+            io: IO::Custom(writer),
         }
     }
 
     fn get_writer(&mut self) -> &mut dyn Write {
         match &mut self.io {
-            IO::Std { r: _, w } => w,
-            IO::Custom { r: _, w } => w,
+            IO::TTY(w) => w,
+            IO::Custom(w) => w,
         }
     }
 
@@ -112,31 +118,35 @@ impl<'a> TermionTerminal<'a> {
 
 impl<'a> Terminal for TermionTerminal<'a> {
     fn cursor_up(&mut self, cnt: u16) -> Result<()> {
-        write!(self.get_writer(), "{}", cursor::Up(cnt))
+        match cnt {
+            0 => Ok(()),
+            cnt => write!(self.get_writer(), "{}", cursor::Up(cnt)),
+        }
     }
 
     fn cursor_down(&mut self, cnt: u16) -> Result<()> {
-        write!(self.get_writer(), "{}", cursor::Down(cnt))
+        match cnt {
+            0 => Ok(()),
+            cnt => write!(self.get_writer(), "{}", cursor::Down(cnt)),
+        }
+    }
+
+    fn cursor_left(&mut self, cnt: u16) -> Result<()> {
+        match cnt {
+            0 => Ok(()),
+            cnt => write!(self.get_writer(), "{}", cursor::Left(cnt)),
+        }
+    }
+
+    fn cursor_right(&mut self, cnt: u16) -> Result<()> {
+        match cnt {
+            0 => Ok(()),
+            cnt => write!(self.get_writer(), "{}", cursor::Right(cnt)),
+        }
     }
 
     fn cursor_move_to_column(&mut self, idx: u16) -> Result<()> {
         write!(self.get_writer(), "\x1b[{}G", idx.saturating_add(1))
-    }
-
-    fn read_key(&mut self) -> Result<crate::ui::Key> {
-        loop {
-            match &mut self.io {
-                IO::Std { r, w: _ } => {
-                    if let Some(key) = r.next() {
-                        return key.map(|k| k.into());
-                    }
-                }
-                IO::Custom { r, w: _ } => {
-                    let key = r.next().expect("Custom stream of characters has ended");
-                    return Ok((*key).into());
-                }
-            }
-        }
     }
 
     fn flush(&mut self) -> Result<()> {
@@ -144,15 +154,11 @@ impl<'a> Terminal for TermionTerminal<'a> {
     }
 
     fn get_size(&self) -> Result<super::TerminalSize> {
-        terminal_size().map(|(width, height)| super::TerminalSize { width, height })
+        terminal_size().map(|(width, height)| super::TerminalSize::new(width, height))
     }
 
     fn write<T: std::fmt::Display>(&mut self, val: T) -> Result<()> {
-        let formatted = format!("{}", val);
-        let converted = newline_converter::unix2dos(&formatted);
-
-        self.in_memory_content.push_str(converted.as_ref());
-        write!(self.get_writer(), "{}", converted)
+        write!(self.get_writer(), "{}", val)
     }
 
     fn write_styled<T: std::fmt::Display>(&mut self, val: &Styled<T>) -> Result<()> {
@@ -181,8 +187,12 @@ impl<'a> Terminal for TermionTerminal<'a> {
         Ok(())
     }
 
-    fn clear_current_line(&mut self) -> Result<()> {
+    fn clear_line(&mut self) -> Result<()> {
         write!(self.get_writer(), "{}", termion::clear::CurrentLine)
+    }
+
+    fn clear_until_new_line(&mut self) -> Result<()> {
+        write!(self.get_writer(), "{}", termion::clear::UntilNewline)
     }
 
     fn cursor_hide(&mut self) -> Result<()> {
@@ -191,14 +201,6 @@ impl<'a> Terminal for TermionTerminal<'a> {
 
     fn cursor_show(&mut self) -> Result<()> {
         write!(self.get_writer(), "{}", termion::cursor::Show)
-    }
-
-    fn get_in_memory_content(&self) -> &str {
-        self.in_memory_content.as_ref()
-    }
-
-    fn clear_in_memory_content(&mut self) {
-        self.in_memory_content.clear();
     }
 }
 
@@ -256,8 +258,8 @@ impl From<Key> for crate::ui::Key {
             Key::Delete => Self::Delete(KeyModifiers::empty()),
             Key::Home => Self::Home,
             Key::End => Self::End,
-            Key::PageUp => Self::PageUp,
-            Key::PageDown => Self::PageDown,
+            Key::PageUp => Self::PageUp(KeyModifiers::empty()),
+            Key::PageDown => Self::PageDown(KeyModifiers::empty()),
             Key::Up => Self::Up(KeyModifiers::empty()),
             Key::Down => Self::Down(KeyModifiers::empty()),
             Key::Left => Self::Left(KeyModifiers::empty()),
@@ -282,11 +284,9 @@ mod test {
     #[test]
     fn writer() {
         let mut write: Vec<u8> = Vec::new();
-        let read = Vec::new();
-        let mut read = read.iter();
 
         {
-            let mut terminal = TermionTerminal::new_with_io(&mut write, &mut read);
+            let mut terminal = TermionTerminal::new_with_writer(&mut write);
 
             terminal.write("testing ").unwrap();
             terminal.write("writing ").unwrap();
@@ -301,11 +301,9 @@ mod test {
     #[test]
     fn style_management() {
         let mut write: Vec<u8> = Vec::new();
-        let read = Vec::new();
-        let mut read = read.iter();
 
         {
-            let mut terminal = TermionTerminal::new_with_io(&mut write, &mut read);
+            let mut terminal = TermionTerminal::new_with_writer(&mut write);
 
             terminal.set_attributes(Attributes::BOLD).unwrap();
             terminal.set_attributes(Attributes::ITALIC).unwrap();
@@ -323,11 +321,9 @@ mod test {
     #[test]
     fn style_management_with_flags() {
         let mut write: Vec<u8> = Vec::new();
-        let read = Vec::new();
-        let mut read = read.iter();
 
         {
-            let mut terminal = TermionTerminal::new_with_io(&mut write, &mut read);
+            let mut terminal = TermionTerminal::new_with_writer(&mut write);
 
             terminal
                 .set_attributes(Attributes::BOLD | Attributes::ITALIC | Attributes::BOLD)
@@ -342,11 +338,9 @@ mod test {
     #[test]
     fn fg_color_management() {
         let mut write: Vec<u8> = Vec::new();
-        let read = Vec::new();
-        let mut read = read.iter();
 
         {
-            let mut terminal = TermionTerminal::new_with_io(&mut write, &mut read);
+            let mut terminal = TermionTerminal::new_with_writer(&mut write);
 
             terminal.set_fg_color(Color::LightRed).unwrap();
             terminal.reset_fg_color().unwrap();
@@ -364,11 +358,9 @@ mod test {
     #[test]
     fn bg_color_management() {
         let mut write: Vec<u8> = Vec::new();
-        let read = Vec::new();
-        let mut read = read.iter();
 
         {
-            let mut terminal = TermionTerminal::new_with_io(&mut write, &mut read);
+            let mut terminal = TermionTerminal::new_with_writer(&mut write);
 
             terminal.set_bg_color(Color::LightRed).unwrap();
             terminal.reset_bg_color().unwrap();

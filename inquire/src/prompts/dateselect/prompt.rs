@@ -1,12 +1,10 @@
 use std::{
-    cmp::{max, min},
+    cmp::{max, min, Ordering},
     ops::Add,
 };
 
-use time::{Date, Duration};
-
 use crate::{
-    date_utils::{get_current_date, get_month, get_number_month},
+    date_utils::get_current_date,
     error::InquireResult,
     formatter::DateFormatter,
     prompts::prompt::{ActionResult, Prompt},
@@ -14,6 +12,8 @@ use crate::{
     validator::{DateValidator, ErrorMessage, Validation},
     DateSelect, InquireError,
 };
+use time::util::days_in_year_month;
+use time::{Date, Duration, Month};
 
 use super::{action::DateSelectPromptAction, config::DateSelectConfig};
 
@@ -60,28 +60,44 @@ impl<'a> DateSelectPrompt<'a> {
     }
 
     fn shift_months(&mut self, qty: i32) -> ActionResult {
-        let date = self.current_date;
+        let month = self.current_date.month();
+        let mut new_month = month;
+        let mut new_day = self.current_date.day();
+        let new_date = match qty.cmp(&0) {
+            Ordering::Greater | Ordering::Equal => {
+                let mut year_to_add = 0;
+                for _ in 0..qty {
+                    new_month = month.next();
+                    if new_month == Month::January {
+                        year_to_add += 1;
+                    }
+                }
+                let new_year = self.current_date.year() + year_to_add;
+                let last_day = days_in_year_month(new_year, new_month);
+                if self.current_date.day() > last_day {
+                    new_day = last_day;
+                }
+                Date::from_calendar_date(new_year, new_month, new_day).unwrap_or(self.current_date)
+            }
 
-        let years = qty / 12;
-        let months = qty % 12;
-
-        let new_year = date.year() + years;
-        let cur_month = get_number_month(date.month());
-        let mut new_month = (cur_month as i32 + months) % 12;
-        if new_month < 1 {
-            new_month += 12;
-        }
-
-        let new_date = date
-            .replace_month(get_month(new_month as u32))
-            .and_then(|d| d.replace_year(new_year))
-            .ok();
-
-        if let Some(new_date) = new_date {
-            self.update_date(new_date)
-        } else {
-            ActionResult::Clean
-        }
+            Ordering::Less => {
+                let qty = qty.abs();
+                let mut year_to_remove = 0;
+                for _ in 0..qty {
+                    new_month = month.previous();
+                    if new_month == Month::December {
+                        year_to_remove += 1;
+                    }
+                }
+                let new_year = self.current_date.year() - year_to_remove;
+                let last_day = days_in_year_month(new_year, new_month);
+                if self.current_date.day() > last_day {
+                    new_day = last_day;
+                }
+                Date::from_calendar_date(new_year, new_month, new_day).unwrap_or(self.current_date)
+            }
+        };
+        self.update_date(new_date)
     }
 
     fn update_date(&mut self, new_date: Date) -> ActionResult {

@@ -1,4 +1,6 @@
 mod action;
+#[cfg(test)]
+mod test;
 
 pub use action::*;
 
@@ -7,8 +9,8 @@ use crate::{
     error::{InquireError, InquireResult},
     formatter::{BoolFormatter, DEFAULT_BOOL_FORMATTER},
     parser::{BoolParser, DEFAULT_BOOL_PARSER},
-    terminal::{get_default_terminal, Terminal},
-    ui::{Backend, RenderConfig},
+    terminal::get_default_terminal,
+    ui::{Backend, CustomTypeBackend, RenderConfig},
     CustomType,
 };
 
@@ -60,6 +62,13 @@ use crate::{
 pub struct Confirm<'a> {
     /// Message to be presented to the user.
     pub message: &'a str,
+
+    /// Initial value of the prompt's text input.
+    ///
+    /// If you want to set a default value for the prompt, returned when the user's submission is empty, see [`default`].
+    ///
+    /// [`default`]: Self::default
+    pub starting_input: Option<&'a str>,
 
     /// Default value, returned when the user input is empty.
     pub default: Option<bool>,
@@ -115,6 +124,7 @@ impl<'a> Confirm<'a> {
     pub fn new(message: &'a str) -> Self {
         Self {
             message,
+            starting_input: None,
             default: None,
             placeholder: None,
             help_message: None,
@@ -124,6 +134,16 @@ impl<'a> Confirm<'a> {
             error_message: String::from(Self::DEFAULT_ERROR_MESSAGE),
             render_config: get_configuration(),
         }
+    }
+
+    /// Sets the initial value of the prompt's text input.
+    ///
+    /// If you want to set a default value for the prompt, returned when the user's submission is empty, see [`with_default`].
+    ///
+    /// [`with_default`]: Self::with_default
+    pub fn with_starting_input(mut self, message: &'a str) -> Self {
+        self.starting_input = Some(message);
+        self
     }
 
     /// Sets the default input.
@@ -201,14 +221,14 @@ impl<'a> Confirm<'a> {
     /// Parses the provided behavioral and rendering options and prompts
     /// the CLI user for input according to the defined rules.
     pub fn prompt(self) -> InquireResult<bool> {
-        let terminal = get_default_terminal()?;
-        let mut backend = Backend::new(terminal, self.render_config)?;
+        let (input_reader, terminal) = get_default_terminal()?;
+        let mut backend = Backend::new(input_reader, terminal, self.render_config)?;
         self.prompt_with_backend(&mut backend)
     }
 
-    pub(crate) fn prompt_with_backend<T: Terminal>(
+    pub(crate) fn prompt_with_backend<B: CustomTypeBackend>(
         self,
-        backend: &mut Backend<'a, T>,
+        backend: &mut B,
     ) -> InquireResult<bool> {
         CustomType::from(self).prompt_with_backend(backend)
     }
@@ -224,6 +244,7 @@ impl<'a> From<Confirm<'a>> for CustomType<'a, bool> {
     fn from(co: Confirm<'a>) -> Self {
         Self {
             message: co.message,
+            starting_input: co.starting_input,
             default: co.default,
             default_value_formatter: co.default_value_formatter,
             placeholder: co.placeholder,

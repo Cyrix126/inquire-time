@@ -36,7 +36,9 @@ where
         I: InnerAction<Config = C>,
     {
         match key {
-            Key::Enter | Key::Char('j', KeyModifiers::CONTROL) => Some(Action::Submit),
+            Key::Enter
+            | Key::Char('\n', KeyModifiers::NONE)
+            | Key::Char('j', KeyModifiers::CONTROL) => Some(Action::Submit),
             Key::Escape | Key::Char('g', KeyModifiers::CONTROL) => Some(Action::Cancel),
             Key::Char('c', KeyModifiers::CONTROL) => Some(Action::Interrupt),
             key => I::from_key(key, config).map(Action::Inner),
@@ -61,4 +63,89 @@ where
     fn from_key(key: Key, config: &Self::Config) -> Option<Self>
     where
         Self: Sized;
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        ui::{Key, KeyModifiers},
+        Action, InnerAction,
+    };
+
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    pub enum MockInnerAction {
+        Action(Key),
+    }
+
+    impl InnerAction for MockInnerAction {
+        type Config = ();
+
+        fn from_key(key: Key, _config: &()) -> Option<Self>
+        where
+            Self: Sized,
+        {
+            Some(Self::Action(key))
+        }
+    }
+
+    #[test]
+    fn standard_keybindings_for_submit() {
+        let key = Key::Enter;
+        assert_eq!(
+            Some(Action::<MockInnerAction>::Submit),
+            Action::from_key(key, &())
+        );
+    }
+
+    #[test]
+    fn standard_keybindings_for_cancel() {
+        let key = Key::Escape;
+        assert_eq!(
+            Some(Action::<MockInnerAction>::Cancel),
+            Action::from_key(key, &())
+        );
+    }
+
+    #[test]
+    fn ctrl_c_results_in_interrupt_action() {
+        let key = Key::Char('c', KeyModifiers::CONTROL);
+        assert_eq!(
+            Some(Action::<MockInnerAction>::Interrupt),
+            Action::from_key(key, &())
+        );
+    }
+
+    #[test]
+    fn generic_keys_are_passed_down_to_inner_action() {
+        assert_eq!(
+            Some(Action::<MockInnerAction>::Inner(MockInnerAction::Action(
+                Key::Char('a', KeyModifiers::NONE)
+            ))),
+            Action::from_key(Key::Char('a', KeyModifiers::NONE), &())
+        );
+        assert_eq!(
+            Some(Action::<MockInnerAction>::Inner(MockInnerAction::Action(
+                Key::Home
+            ))),
+            Action::from_key(Key::Home, &())
+        );
+        assert_eq!(
+            Some(Action::<MockInnerAction>::Inner(MockInnerAction::Action(
+                Key::PageDown(KeyModifiers::NONE)
+            ))),
+            Action::from_key(Key::PageDown(KeyModifiers::NONE), &())
+        );
+    }
+
+    #[test]
+    fn emacs_control_keybindings() {
+        assert_eq!(
+            Some(Action::<MockInnerAction>::Submit),
+            Action::from_key(Key::Char('j', KeyModifiers::CONTROL), &())
+        );
+        assert_eq!(
+            Some(Action::<MockInnerAction>::Cancel),
+            Action::from_key(Key::Char('g', KeyModifiers::CONTROL), &())
+        );
+    }
 }

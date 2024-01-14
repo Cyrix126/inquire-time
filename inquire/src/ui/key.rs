@@ -8,6 +8,9 @@ bitflags! {
         const SHIFT = 0b0000_0001;
         const CONTROL = 0b0000_0010;
         const ALT = 0b0000_0100;
+        const SUPER = 0b0000_1000;
+        const HYPER = 0b0001_0000;
+        const META = 0b0010_0000;
         const NONE = 0b0000_0000;
     }
 }
@@ -21,8 +24,8 @@ pub enum Key {
     Delete(KeyModifiers),
     Home,
     End,
-    PageUp,
-    PageDown,
+    PageUp(KeyModifiers),
+    PageDown(KeyModifiers),
     Up(KeyModifiers),
     Down(KeyModifiers),
     Left(KeyModifiers),
@@ -30,4 +33,17 @@ pub enum Key {
     Char(char, KeyModifiers),
     #[deprecated(note = "If the key you want isn't mapped, please open a PR.")]
     Any,
+}
+
+#[cfg(test)]
+pub(crate) mod key_test {
+    use super::{Key, KeyModifiers};
+
+    impl Key {
+        pub fn char_keys_from_str(s: &str) -> Vec<Self> {
+            s.chars()
+                .map(|c| Key::Char(c, KeyModifiers::NONE))
+                .collect()
+        }
+    }
 }
