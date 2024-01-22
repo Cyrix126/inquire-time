@@ -36,7 +36,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 crossterm = { version = "0.25", optional = true }
 termion = { version = "2", optional = true }
 console = { version = "0.15", optional = true, features = ["windows-console-colors"] }
-time = { version = "=0.3.30", default-features=false,features = ["macros", "local-offset", "formatting", "parsing"],optional = true }
+time = { version = "0.3", default-features=false,features = ["macros", "local-offset", "formatting", "parsing"],optional = true }
 tempfile = { version = "3", optional = true }
 fuzzy-matcher = { version = "0.3", default-features = false, optional = true }
 bitflags = "2"
